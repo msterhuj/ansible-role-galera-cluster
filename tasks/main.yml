@@ -1,2 +1,59 @@
 ---
 # tasks file for galera-cluster
+- name: "Install requirements"
+  apt:
+    package:
+      - "software-properties-common"
+      - "mariadb-client"
+      - "mariadb-server"
+      - "galera-4"
+      - "python3-pymysql"
+    state: "present"
+
+- name: Set ~/.my.cnf file
+  template:
+    src: dot.my.cnf.j2
+    dest: /root/.my.cnf
+    mode: 0600
+
+- name: Update MariaDB root password
+  mysql_user:
+    name: root
+    host: "{{ item }}"
+    password: "{{ galera_mysql_root_password }}"
+  with_items:
+    - 127.0.0.1
+    - ::1
+    - localhost
+
+- name: Delete anonymous MySQL user
+  mysql_user:
+    name: ""
+    host: "{{ item }}"
+    state: absent
+  with_items:
+    - localhost
+    - "{{ ansible_nodename }}"
+
+- name: Delete Hostname based MySQL user
+  mysql_user:
+    name: root
+    host: "{{ ansible_nodename }}"
+    state: absent
+
+- name: Remove MySQL test database
+  mysql_db:
+    name: test
+    state: absent
+
+- name: "Push 60-galera.cnf to /etc/mysql/mariadb.conf.d/"
+  template:
+    src: 60-galera.cnf.j2
+    dest: /etc/mysql/mariadb.conf.d/60-galera.cnf
+    mode: 0644
+
+- name: "Enable and start mariadb"
+  service:
+    name: mariadb
+    state: restarted
+    enabled: yes

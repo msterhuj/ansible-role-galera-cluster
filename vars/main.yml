@@ -1,2 +1,6 @@
 ---
 # vars file for galera-cluster
+galera_mysql_root_password: "root"
+
+galera_cluster_name: "galera-cluster"
+galera_bind_address: 0.0.0.0
