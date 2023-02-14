@@ -1,5 +1,11 @@
 ---
 # tasks file for galera-cluster
+
+- name: "Update package list"
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600 
+
 - name: "Install requirements"
   apt:
     package:
@@ -8,52 +14,86 @@
       - "mariadb-server"
       - "galera-4"
       - "python3-pymysql"
+      - "lnav"
     state: "present"
 
-- name: Set ~/.my.cnf file
+- name: "Check if galera is config exists"
+  stat:
+    path: /var/lib/mysql/grastate.dat
+  register: grastate
+
+- name: "Set root .my.cnf file"
   template:
-    src: dot.my.cnf.j2
+    src: root/dot.my.cnf.j2
     dest: /root/.my.cnf
     mode: 0600
+- name: "mysql_secure_install"
+  block:
+    - name: "Switch to socket auth mariadb"
+      template:
+        src: etc/mysql/my.cnf.j2
+        dest: /etc/mysql/my.cnf
+        mode: 0644
 
-- name: Update MariaDB root password
-  mysql_user:
-    name: root
-    host: "{{ item }}"
-    password: "{{ galera_mysql_root_password }}"
-  with_items:
-    - 127.0.0.1
-    - ::1
-    - localhost
+    - name: Update MariaDB root password
+      mysql_user:
+        name: root
+        host: "{{ item }}"
+        password: "{{ galera_mysql_root_password }}"
+      with_items: []
+      # - 127.0.0.1
+      # - ::1
+      # - localhost
 
-- name: Delete anonymous MySQL user
-  mysql_user:
-    name: ""
-    host: "{{ item }}"
-    state: absent
-  with_items:
-    - localhost
-    - "{{ ansible_nodename }}"
+    - name: Delete anonymous MySQL user
+      mysql_user:
+        name: ""
+        host: "{{ item }}"
+        state: absent
+      with_items:
+        - localhost
+        - "{{ ansible_nodename }}"
 
-- name: Delete Hostname based MySQL user
-  mysql_user:
-    name: root
-    host: "{{ ansible_nodename }}"
-    state: absent
+    - name: Delete Hostname based MySQL user
+      mysql_user:
+        name: root
+        host: "{{ ansible_nodename }}"
+        state: absent
 
-- name: Remove MySQL test database
-  mysql_db:
-    name: test
-    state: absent
-
+    - name: Remove MySQL test database
+      mysql_db:
+        name: test
+        state: absent
+  when: grastate.stat.exists == False
+  
 - name: "Push 60-galera.cnf to /etc/mysql/mariadb.conf.d/"
   template:
-    src: 60-galera.cnf.j2
+    src: etc/mysql/mariadb.conf.d/60-galera.cnf.j2
     dest: /etc/mysql/mariadb.conf.d/60-galera.cnf
     mode: 0644
 
-- name: "Enable and start mariadb"
+- name: "Stop all mariadb client"
+  service:
+    name: mariadb
+    state: stopped
+    enabled: yes
+  when: inventory_hostname != groups['database'][0]
+
+- name: "Stop mariadb on first node"
+  service:
+    name: mariadb
+    state: stopped
+    enabled: yes
+  when: inventory_hostname == groups['database'][0]
+
+- name: "Init new cluster on first node"
+  command: "galera_new_cluster"
+  when:
+    - inventory_hostname == groups['database'][0]
+
+- name: "Start mariadb"
   service:
     name: mariadb
     state: restarted
     enabled: yes
+  when: inventory_hostname != groups['database'][0]

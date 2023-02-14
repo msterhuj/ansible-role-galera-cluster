@@ -7,18 +7,19 @@
 [galera]
 # Mandatory settings
 wsrep_on                 = ON
+wsrep_provider           = /usr/lib/galera/libgalera_smm.so
 wsrep_cluster_name       = "{{ galera_cluster_name }}"
-wsrep_cluster_address    = gcomm://{{ groups['database'] | map('extract', hostvars, 'ansible_host') | join(',') }}
+wsrep_cluster_address    = "gcomm://{{ groups['database'] | map('extract', hostvars, 'ansible_host') | join(',') }}"
 binlog_format            = row
 default_storage_engine   = InnoDB
 innodb_autoinc_lock_mode = 2
 
 # Allow server to accept connections on all interfaces.
 bind-address = {{ galera_bind_address }}
+wsrep_node_name = "{{ ansible_hostname }}"
+wsrep_node_address = "{{ ansible_host }}"
 
 # Optional settings
 wsrep_slave_threads = 4
 innodb_flush_log_at_trx_commit = 0
-wsrep_node_name = "{{ ansible_hostname }}"
-wsrep_node_address = "{{ ansible_host }}"
 log_error = /var/log/mysql/error.log
