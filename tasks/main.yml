@@ -2,12 +2,12 @@
 # tasks file for galera-cluster
 
 - name: "Update package list"
-  apt:
-    update_cache: yes
-    cache_valid_time: 3600 
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
 
 - name: "Install requirements"
-  apt:
+  ansible.builtin.apt:
     package:
       - "software-properties-common"
       - "mariadb-client"
@@ -18,25 +18,27 @@
     state: "present"
 
 - name: "Check if galera is config exists"
-  stat:
+  ansible.builtin.stat:
     path: /var/lib/mysql/grastate.dat
   register: grastate
 
 - name: "Set root .my.cnf file"
-  template:
+  ansible.builtin.template:
     src: root/dot.my.cnf.j2
     dest: /root/.my.cnf
-    mode: 0600
-- name: "mysql_secure_install"
+    mode: "0600"
+
+- name: "Make mysql_secure_install manually"
+  when: not grastate.stat.exists
   block:
     - name: "Switch to socket auth mariadb"
-      template:
+      ansible.builtin.template:
         src: etc/mysql/my.cnf.j2
         dest: /etc/mysql/my.cnf
-        mode: 0644
+        mode: "0644"
 
     - name: Update MariaDB root password
-      mysql_user:
+      community.mysql.mysql_user:
         name: root
         host: "{{ item }}"
         password: "{{ galera_mysql_root_password }}"
@@ -46,7 +48,7 @@
       # - localhost
 
     - name: Delete anonymous MySQL user
-      mysql_user:
+      community.mysql.mysql_user:
         name: ""
         host: "{{ item }}"
         state: absent
@@ -55,45 +57,44 @@
         - "{{ ansible_nodename }}"
 
     - name: Delete Hostname based MySQL user
-      mysql_user:
+      community.mysql.mysql_user:
         name: root
         host: "{{ ansible_nodename }}"
         state: absent
 
     - name: Remove MySQL test database
-      mysql_db:
+      community.mysql.mysql_db:
         name: test
         state: absent
-  when: grastate.stat.exists == False
-  
+
 - name: "Push 60-galera.cnf to /etc/mysql/mariadb.conf.d/"
-  template:
+  ansible.builtin.template:
     src: etc/mysql/mariadb.conf.d/60-galera.cnf.j2
     dest: /etc/mysql/mariadb.conf.d/60-galera.cnf
-    mode: 0644
+    mode: "0644"
 
 - name: "Stop all mariadb client"
-  service:
+  ansible.builtin.service:
     name: mariadb
     state: stopped
-    enabled: yes
+    enabled: true
   when: inventory_hostname != groups['database'][0]
 
 - name: "Stop mariadb on first node"
-  service:
+  ansible.builtin.service:
     name: mariadb
     state: stopped
-    enabled: yes
+    enabled: true
   when: inventory_hostname == groups['database'][0]
 
 - name: "Init new cluster on first node"
-  command: "galera_new_cluster"
+  ansible.builtin.command: "galera_new_cluster"
   when:
     - inventory_hostname == groups['database'][0]
 
 - name: "Start mariadb"
-  service:
+  ansible.builtin.service:
     name: mariadb
     state: restarted
-    enabled: yes
+    enabled: true
   when: inventory_hostname != groups['database'][0]
