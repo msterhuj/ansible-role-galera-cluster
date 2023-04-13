@@ -1,2 +1,26 @@
 ---
 # defaults file for galera-cluster
+galera_mysql_root_password: "root"
+
+galera_cluster_name: "galera-cluster"
+galera_bind_address: 0.0.0.0
+
+galera_bootstrap_node: "{{ groups[galera_hosts_group][0] }}"
+galera_hosts_group: "galera_cluster"
+
+galera_databases:
+  - name: demo
+    state: absent
+
+galera_users:
+  - name: example
+    hosts:
+      - "%"
+      - "127.0.0.1"
+      - "::1"
+      - "localhost"
+    password: secret
+    encrypted: no
+    priv: "*.*:USAGE"
+    state: absent
+    append_privs: no

@@ -1,0 +1,25 @@
+- name: "Stop all mariadb client"
+  ansible.builtin.service:
+    name: mariadb
+    state: stopped
+    enabled: true
+  when: inventory_hostname != groups[galera_hosts_group][0]
+
+- name: "Stop mariadb on first node"
+  ansible.builtin.service:
+    name: mariadb
+    state: stopped
+    enabled: true
+  when: inventory_hostname == groups[galera_hosts_group][0]
+
+- name: "Init new cluster on first node"
+  ansible.builtin.command: "galera_new_cluster"
+  when:
+    - inventory_hostname == groups[galera_hosts_group][0]
+
+- name: "Start mariadb"
+  ansible.builtin.service:
+    name: mariadb
+    state: restarted
+    enabled: true
+  when: inventory_hostname != groups[galera_hosts_group][0]

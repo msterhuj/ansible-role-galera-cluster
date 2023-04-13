@@ -1,0 +1,7 @@
+
+- name: mysql_databases | create the databases
+  mysql_db:
+    name: "{{ item.name }}"
+    state: "{{ item.state | default('present') }}"
+    login_unix_socket: "/var/run/mysqld/mysqld.sock"
+  loop: "{{ galera_databases }}"
